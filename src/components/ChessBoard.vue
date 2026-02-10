@@ -1,49 +1,31 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import ChessSquare from './ChessSquare.vue'
+import ChessService from '../services/ChessService.js'
 
-const PIECES = {
-  K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙',
-  k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟'
-}
+const chessService = new ChessService()
 
-function createInitialBoard() {
-  const board = Array.from({ length: 8 }, () => Array(8).fill(null))
-
-  const backRank = ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
-
-  for (let col = 0; col < 8; col++) {
-    board[0][col] = { symbol: PIECES[backRank[col].toLowerCase()], color: 'black' }
-    board[1][col] = { symbol: PIECES['p'], color: 'black' }
-    board[6][col] = { symbol: PIECES['P'], color: 'white' }
-    board[7][col] = { symbol: PIECES[backRank[col]], color: 'white' }
-  }
-
-  return board
-}
-
-const board = ref(createInitialBoard())
-const draggedPiece = ref(null)
+const board = ref(chessService.getBoard())
+const history = ref(chessService.getHistory())
 const draggedFrom = ref(null)
 
 function onDragStart(row, col) {
   if (board.value[row][col]) {
-    draggedPiece.value = board.value[row][col]
     draggedFrom.value = { row, col }
   }
 }
 
 function onDrop(row, col) {
   if (draggedFrom.value) {
-    board.value[draggedFrom.value.row][draggedFrom.value.col] = null
-    board.value[row][col] = draggedPiece.value
-    draggedPiece.value = null
+    const { row: fromRow, col: fromCol } = draggedFrom.value
+    chessService.movePiece(fromRow, fromCol, row, col)
+    board.value = [...chessService.getBoard()]
+    history.value = [...chessService.getHistory()]
     draggedFrom.value = null
   }
 }
 
 function onDragEnd() {
-  draggedPiece.value = null
   draggedFrom.value = null
 }
 
@@ -59,7 +41,7 @@ const rows = [8, 7, 6, 5, 4, 3, 2, 1]
   <div class="board-container">
     <div class="board">
       <div v-for="(row, rowIndex) in board" :key="rowIndex" class="row">
-        <span v-if="rowIndex === 0 || true" class="row-label">{{ rows[rowIndex] }}</span>
+        <span class="row-label">{{ rows[rowIndex] }}</span>
         <ChessSquare
           v-for="(piece, colIndex) in row"
           :key="colIndex"
@@ -76,6 +58,20 @@ const rows = [8, 7, 6, 5, 4, 3, 2, 1]
         <span class="col-label-spacer"></span>
         <span v-for="col in columns" :key="col" class="col-label">{{ col }}</span>
       </div>
+    </div>
+
+    <div v-if="history.length" class="history">
+      <h2>Historique des coups</h2>
+      <ul>
+        <li v-for="move in history" :key="move.moveNumber">
+          <span class="move-number">{{ move.moveNumber }}.</span>
+          <span class="move-piece" :class="move.piece.color">{{ move.piece.symbol }}</span>
+          {{ move.piece.name }} {{ move.from }} → {{ move.to }}
+          <span v-if="move.captured" class="capture">
+            (capture {{ move.captured.symbol }} {{ move.captured.name }})
+          </span>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -119,5 +115,45 @@ const rows = [8, 7, 6, 5, 4, 3, 2, 1]
   font-weight: bold;
   font-size: 14px;
   padding: 4px 0;
+}
+
+.history {
+  margin-top: 20px;
+  text-align: left;
+  color: #f0d9b5;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.history h2 {
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+}
+
+.history ul {
+  list-style: none;
+  padding: 0;
+}
+
+.history li {
+  padding: 4px 8px;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(240, 217, 181, 0.2);
+}
+
+.move-number {
+  color: #b58863;
+  margin-right: 6px;
+  font-weight: bold;
+}
+
+.move-piece {
+  margin-right: 4px;
+  font-size: 18px;
+}
+
+.capture {
+  color: #e07a5f;
+  font-style: italic;
 }
 </style>
